@@ -176,8 +176,9 @@ var buddy = {
   status: 'disconnected'
 };
 
-var blinkState = {blinking:false, nextBlink:0};
-function schedBlink() { blinkState.nextBlink = Date.now() + 2000 + Math.random()*3000; }
+var blinkState = {blinking:false, nextBlink:0, until:0};
+function schedBlink() { blinkState.nextBlink = Date.now() + 2000 + Math.random()*4000; }
+function doBlink() { blinkState.blinking = true; blinkState.until = Date.now() + 120; }
 schedBlink();
 
 // ── state mapping ────────────────────────────────────────────────────────────
@@ -338,6 +339,15 @@ function drawSprite() {
 
   var state = buddy.connected ? mapState(buddy.status) : 'sleep';
   var sp = getSprite(buddy.species, state);
+
+  // Trigger occasional blink
+  if (!blinkState.blinking && Date.now() >= blinkState.nextBlink) {
+    doBlink();
+    schedBlink();
+  }
+  if (blinkState.blinking && Date.now() >= blinkState.until) {
+    blinkState.blinking = false;
+  }
   
   // Scanlines effect
   ctx.fillStyle = 'rgba(0,255,65,0.02)';
@@ -352,22 +362,26 @@ function drawSprite() {
     var rows = sp.length;
     var totalH = rows * lineH;
     var startY = (H - totalH) / 2;
-    
+
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = fontSize + 'px monospace';
+    ctx.font = '16px monospace';
+
+    // Get exact monospace character width
+    var charWidth = ctx.measureText('M').width;
 
     for (var r = 0; r < rows; r++) {
       var row = sp[r] || '';
-      var x = 120;
       var y = startY + r * lineH + lineH/2;
+      var rowW = row.length * charWidth;
+      var startX = 120 - rowW / 2 + charWidth / 2;
 
       for (var c = 0; c < row.length; c++) {
         var ch = row[c];
-        var cx = x + (c - row.length/2) * (fontSize * 0.6);
-        
+        var cx = startX + c * charWidth;
+
         if (ch === ' ' || ch === '') continue;
-        
+
         // Matrix green characters with different intensity
         if (ch === 'o' || ch === 'O' || ch === '@' || ch === '^' || ch === '0') {
           ctx.fillStyle = '#00FF41';
@@ -383,10 +397,9 @@ function drawSprite() {
           ctx.fillStyle = DIM;
         }
 
-        // Blinking effect
-        if (ch === 'o' || ch === 'O') {
-          var blink = Math.sin(buddy.tick * 0.15 + c + r) * 0.3 + 0.7;
-          ctx.globalAlpha = blink;
+        // Occasional blink (hide eye chars during blink)
+        if (blinkState.blinking && (ch === 'o' || ch === 'O' || ch === '@' || ch === '0' || ch === '^' || ch === 'v' || ch === 'x')) {
+          continue;
         }
 
         ctx.fillText(ch, cx, y);
@@ -510,7 +523,6 @@ updateSpeciesDisplay();
 tryRelative();
 setInterval(pollState, 3000);
 loop();
-schedBlink();
 
 })();
 </script>
