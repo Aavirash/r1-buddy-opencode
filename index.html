@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=240,initial-scale=1.0,user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>OpenCode Buddy</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -10,7 +13,7 @@ body{width:240px;height:282px;overflow:hidden;background:#0a0a0a;-webkit-user-se
 #top-bar{position:absolute;top:0;left:0;right:0;height:24px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;border-bottom:1px solid rgba(0,255,65,0.15)}
 #top-bar .name{font-size:9px;font-weight:700;letter-spacing:2px;color:#00FF41}
 #top-bar .status-lbl{font-size:8px;font-weight:600;letter-spacing:1px;color:rgba(0,255,65,0.45)}
-#main-canvas{position:absolute;top:24px;left:0;display:block}
+#sprite-text{position:absolute;top:24px;left:0;width:240px;height:208px;display:flex;align-items:center;justify-content:center;font:16px/1.1 monospace;color:#00FF41;text-align:center;white-space:pre;overflow:hidden;padding:0 4px;background-image:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,255,65,0.03) 2px,rgba(0,255,65,0.03) 3px)}
 #bottom-bar{position:absolute;bottom:0;left:0;right:0;height:50px;padding:4px 10px 6px;display:flex;flex-direction:column;gap:2px;border-top:1px solid rgba(0,255,65,0.1)}
 .bar-row{display:flex;align-items:center;gap:6px}
 .bar-label{font-size:8px;font-weight:700;letter-spacing:1px;color:rgba(0,255,65,0.35);min-width:8px}
@@ -44,7 +47,7 @@ body{width:240px;height:282px;overflow:hidden;background:#0a0a0a;-webkit-user-se
   <span class="status-lbl" id="status-lbl">--</span>
 </div>
 
-<canvas id="main-canvas" width="240" height="208"></canvas>
+<pre id="sprite-text"></pre>
 
 <div id="bottom-bar">
   <div class="bar-row">
@@ -87,11 +90,7 @@ body{width:240px;height:282px;overflow:hidden;background:#0a0a0a;-webkit-user-se
 (function(){
 'use strict';
 
-var GREEN = '#00FF41';
-var DIM = 'rgba(0,255,65,0.35)';
-var BG = '#0a0a0a';
-var canvas = document.getElementById('main-canvas');
-var ctx = canvas.getContext('2d');
+var spriteEl = document.getElementById('sprite-text');
 
 // ── 18 species sprite data ──────────────────────────────────────────────
 var S = {};
@@ -329,14 +328,10 @@ function getSprite(species, state) {
   var si = mapAnim(state);
   var frames = sp.s[si];
   if (!frames || !frames.length) return [['no frame']];
-  return frames[Math.floor(buddy.tick / 12) % frames.length];
+  return frames[Math.floor(buddy.tick / 30) % frames.length];
 }
 
 function drawSprite() {
-  var W = 240, H = 208;
-  ctx.fillStyle = BG;
-  ctx.fillRect(0, 0, W, H);
-
   var state = buddy.connected ? mapState(buddy.status) : 'sleep';
   var sp = getSprite(buddy.species, state);
 
@@ -348,85 +343,34 @@ function drawSprite() {
   if (blinkState.blinking && Date.now() >= blinkState.until) {
     blinkState.blinking = false;
   }
-  
-  // Scanlines effect
-  ctx.fillStyle = 'rgba(0,255,65,0.02)';
-  for (var sy = 0; sy < H; sy += 3) {
-    ctx.fillRect(0, sy, W, 1);
-  }
 
-  // Draw sprite
+  // Build sprite text from rows
+  var text = '';
   if (sp && sp.length) {
-    var fontSize = 16;
-    var lineH = 18;
-    var rows = sp.length;
-    var totalH = rows * lineH;
-    var startY = (H - totalH) / 2;
-
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.font = '16px monospace';
-
-    // Get exact monospace character width
-    var charWidth = ctx.measureText('M').width;
-
-    for (var r = 0; r < rows; r++) {
+    for (var r = 0; r < sp.length; r++) {
       var row = sp[r] || '';
-      var y = startY + r * lineH + lineH/2;
-      var rowW = row.length * charWidth;
-      var startX = 120 - rowW / 2 + charWidth / 2;
-
-      for (var c = 0; c < row.length; c++) {
-        var ch = row[c];
-        var cx = startX + c * charWidth;
-
-        if (ch === ' ' || ch === '') continue;
-
-        // Matrix green characters with different intensity
-        if (ch === 'o' || ch === 'O' || ch === '@' || ch === '^' || ch === '0') {
-          ctx.fillStyle = '#00FF41';
-        } else if ('xX><v~~~!|'.indexOf(ch) >= 0) {
-          ctx.fillStyle = DIM;
-        } else if (ch === '#' || ch === '<' || ch === '3' || ch === '*') {
-          ctx.fillStyle = '#00CC33';
-        } else if (ch === '-' || ch === '_' || ch === '=' || ch === '.' || ch === ',') {
-          ctx.fillStyle = 'rgba(0,255,65,0.5)';
-        } else if ('/\\()[]{}'+"'`\"".indexOf(ch) >= 0) {
-          ctx.fillStyle = 'rgba(0,255,65,0.35)';
-        } else {
-          ctx.fillStyle = DIM;
-        }
-
-        // Occasional blink (hide eye chars during blink)
-        if (blinkState.blinking && (ch === 'o' || ch === 'O' || ch === '@' || ch === '0' || ch === '^' || ch === 'v' || ch === 'x')) {
-          continue;
-        }
-
-        ctx.fillText(ch, cx, y);
-        ctx.globalAlpha = 1;
+      // During blink, replace eye-like characters with spaces
+      if (blinkState.blinking) {
+        row = row.replace(/[oO@0\^vx]/g, ' ');
       }
+      text += row + '\n';
     }
   }
+  spriteEl.textContent = text;
 
-  // Status text at bottom of canvas
-  ctx.fillStyle = DIM;
-  ctx.font = '8px monospace';
-  ctx.textAlign = 'center';
-  var statusText = '';
+  // Status text at bottom bar
+  var statusEl = document.getElementById('status-lbl');
   if (!buddy.connected) {
-    statusText = 'DISCONNECTED';
+    statusEl.textContent = 'DISCONNECTED';
   } else if (buddy.msg) {
-    statusText = buddy.msg;
-  } else if (buddy.status === 'idle') {
-    statusText = 'READY';
+    statusEl.textContent = buddy.msg.toUpperCase();
+  } else if (buddy.status === 'idle' || buddy.status === 'active') {
+    statusEl.textContent = 'READY';
   } else if (buddy.status === 'running') {
-    statusText = buddy.running + ' running';
+    statusEl.textContent = buddy.running + ' RUNNING';
   } else {
-    statusText = buddy.status.toUpperCase();
+    statusEl.textContent = buddy.status.toUpperCase();
   }
-  ctx.fillText(statusText, 120, H - 10);
-
-  ctx.textAlign = 'left';
 }
 
 // ── bars ───────────────────────────────────────────────────────────────
