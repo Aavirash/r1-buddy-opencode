@@ -153,6 +153,13 @@ S.chonk.s[0]=[["            ","            ","  /\\____/\\  "," ( -    - ) "," (
 var SPECIES_KEYS = Object.keys(S);
 var speciesIdx = 0;
 
+// ── helpers ────────────────────────────────────────────────────────────
+function timeoutSignal(ms) {
+  var ctrl = new AbortController();
+  setTimeout(function(){ ctrl.abort(); }, ms);
+  return ctrl.signal;
+}
+
 // ── state ──────────────────────────────────────────────────────────────
 var buddy = {
   species: 'duck',
@@ -204,7 +211,7 @@ var scanning = false;
 
 function tryRelative() {
   var url = '/buddy/state';
-  fetch(url, {method:'GET', signal:AbortSignal.timeout(2000)})
+  fetch(url, {method:'GET', signal:timeoutSignal(2000)})
     .then(function(r){ return r.json(); })
     .then(function(d){
       if (d && typeof d.connected !== 'undefined') {
@@ -232,7 +239,7 @@ function tryNextIp(idx) {
   }
   var ip = DESKTOP_IPS[idx];
   var url = 'http://' + ip + ':9876/buddy/state';
-  fetch(url, {method:'GET', mode:'cors', signal:AbortSignal.timeout(1000)})
+  fetch(url, {method:'GET', mode:'cors', signal:timeoutSignal(1000)})
     .then(function(r){ return r.json(); })
     .then(function(d){
       if (d && typeof d.connected !== 'undefined') {
@@ -265,7 +272,7 @@ function pollState() {
     tryRelative();
     return;
   }
-  fetch(apiUrl, {method:'GET', mode:'cors', signal:AbortSignal.timeout(3000)})
+  fetch(apiUrl, {method:'GET', mode:'cors', signal:timeoutSignal(3000)})
     .then(function(r){ return r.json(); })
     .then(function(d){
       if (d && typeof d.connected !== 'undefined') {
@@ -289,7 +296,7 @@ function postSpecies(sp) {
   fetch(url, {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({species: sp}),
-    signal:AbortSignal.timeout(2000)
+    signal:timeoutSignal(2000)
   }).catch(function(){});
 }
 
