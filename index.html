@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=240,initial-scale=1.0,user-scalable=no">
+<title>OpenCode Buddy</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{width:240px;height:282px;overflow:hidden;background:#0a0a0a;-webkit-user-select:none;user-select:none;font-family:monospace;position:relative}
+#top-bar{position:absolute;top:0;left:0;right:0;height:24px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;border-bottom:1px solid rgba(0,255,65,0.15)}
+#top-bar .name{font-size:9px;font-weight:700;letter-spacing:2px;color:#00FF41}
+#top-bar .status-lbl{font-size:8px;font-weight:600;letter-spacing:1px;color:rgba(0,255,65,0.45)}
+#main-canvas{position:absolute;top:24px;left:0;display:block}
+#bottom-bar{position:absolute;bottom:0;left:0;right:0;height:50px;padding:4px 10px 6px;display:flex;flex-direction:column;gap:2px;border-top:1px solid rgba(0,255,65,0.1)}
+.bar-row{display:flex;align-items:center;gap:6px}
+.bar-label{font-size:8px;font-weight:700;letter-spacing:1px;color:rgba(0,255,65,0.35);min-width:8px}
+.bar-track{flex:1;height:4px;background:rgba(0,255,65,0.08);border-radius:2px;overflow:hidden}
+.bar-fill{height:100%;border-radius:2px;transition:width 0.4s ease;background:#00FF41}
+#hint{font-size:7px;color:rgba(0,255,65,0.25);text-align:center;letter-spacing:0.5px;margin-top:1px}
+#stats-panel{position:absolute;top:0;right:-240px;width:240px;height:282px;background:rgba(10,10,10,0.97);display:flex;flex-direction:column;padding:20px 18px 12px;gap:0;transition:right 0.25s cubic-bezier(0.22,1,0.36,1);border-left:1px solid rgba(0,255,65,0.3);z-index:10;overflow-y:auto;-webkit-overflow-scrolling:touch}
+#stats-panel.open{right:0}
+#stats-panel .sp-title{font-size:9px;font-weight:700;letter-spacing:2px;color:rgba(0,255,65,0.3);margin-bottom:4px}
+#stats-panel .sp-val{font-size:14px;font-weight:700;color:#00FF41;letter-spacing:1px;margin-bottom:2px}
+#stats-panel .sp-sub{font-size:10px;color:rgba(0,255,65,0.45);margin-bottom:8px}
+#stats-panel .sp-divider{height:1px;background:rgba(0,255,65,0.1);margin-bottom:8px}
+#stats-panel .sp-stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
+#stats-panel .sp-stat-item{display:flex;flex-direction:column;gap:2px}
+#stats-panel .sp-stat-label{font-size:8px;font-weight:700;letter-spacing:1.5px;color:rgba(0,255,65,0.35)}
+#stats-panel .sp-stat-val{font-size:12px;font-weight:700;color:#fff;letter-spacing:0.5px}
+#stats-panel .sp-ctrl-header{display:flex;align-items:center;gap:5px;font-size:8px;font-weight:700;letter-spacing:1.5px;color:rgba(0,255,65,0.35);cursor:pointer;margin-bottom:6px;user-select:none}
+#stats-panel .sp-ctrl-header .sp-ctrl-arrow{font-size:7px;transition:transform 0.2s;display:inline-block}
+#stats-panel .sp-ctrl-header.open .sp-ctrl-arrow{transform:rotate(90deg)}
+#stats-panel .sp-controls{display:none;flex-direction:column;gap:3px;margin-bottom:8px}
+#stats-panel .sp-controls.open{display:flex}
+#stats-panel .sp-ctrl-row{display:flex;align-items:center;gap:8px;font-size:9px;color:rgba(0,255,65,0.3)}
+#stats-panel .sp-ctrl-key{font-size:8px;font-weight:700;color:rgba(0,255,65,0.55);min-width:56px}
+#stats-panel .sp-close{margin-top:auto;font-size:9px;color:rgba(0,255,65,0.2);text-align:center;letter-spacing:1px}
+</style>
+</head>
+<body>
+
+<div id="top-bar">
+  <span class="name" id="species-name">OPENCODE BUDDY</span>
+  <span class="status-lbl" id="status-lbl">--</span>
+</div>
+
+<canvas id="main-canvas" width="240" height="208"></canvas>
+
+<div id="bottom-bar">
+  <div class="bar-row">
+    <span class="bar-label">S</span>
+    <div class="bar-track"><div class="bar-fill" id="sessions-bar" style="width:0%"></div></div>
+  </div>
+  <div class="bar-row">
+    <span class="bar-label">T</span>
+    <div class="bar-track"><div class="bar-fill" id="tokens-bar" style="width:0%"></div></div>
+  </div>
+  <div id="hint">↑↓ species · side stats · hold menu</div>
+</div>
+
+<div id="stats-panel">
+  <div class="sp-title">SPECIES</div>
+  <div class="sp-val" id="sp-species-val">--</div>
+  <div class="sp-title" style="margin-top:8px">STATUS</div>
+  <div class="sp-sub" id="sp-status-val">--</div>
+  <div class="sp-divider"></div>
+  <div class="sp-stat-grid">
+    <div class="sp-stat-item"><div class="sp-stat-label">SESSIONS</div><div class="sp-stat-val" id="sp-sessions-val">--</div></div>
+    <div class="sp-stat-item"><div class="sp-stat-label">RUNNING</div><div class="sp-stat-val" id="sp-running-val">--</div></div>
+    <div class="sp-stat-item"><div class="sp-stat-label">TOKENS</div><div class="sp-stat-val" id="sp-tokens-val">--</div></div>
+    <div class="sp-stat-item"><div class="sp-stat-label">TODAY</div><div class="sp-stat-val" id="sp-today-val">--</div></div>
+  </div>
+  <div class="sp-divider"></div>
+  <div class="sp-ctrl-header" id="sp-ctrl-header">
+    <span class="sp-ctrl-arrow">▶</span>CONTROLS
+  </div>
+  <div class="sp-controls" id="sp-controls">
+    <div class="sp-ctrl-row"><span class="sp-ctrl-key">SCROLL ↑</span>prev species</div>
+    <div class="sp-ctrl-row"><span class="sp-ctrl-key">SCROLL ↓</span>next species</div>
+    <div class="sp-ctrl-row"><span class="sp-ctrl-key">SIDE</span>stats panel</div>
+    <div class="sp-ctrl-row"><span class="sp-ctrl-key">SIDE HOLD</span>setup menu</div>
+  </div>
+  <div class="sp-close">tap or esc to close</div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+var GREEN = '#00FF41';
+var DIM = 'rgba(0,255,65,0.35)';
+var BG = '#0a0a0a';
+var canvas = document.getElementById('main-canvas');
+var ctx = canvas.getContext('2d');
+
+// ── 18 species sprite data ──────────────────────────────────────────────
+var S = {};
+
+S.capybara={n:"Capybara",s:[[],["            ","  n______n  "," ( o    o ) "," (   oo   ) ","  `------'  "],["            ","  n______n  "," ( v    v ) "," (   --   ) "," /`------'\\ "],["    ^  ^    "," /^_____^\\  ","( O      O )"," (   O    ) ","  `------'  "],["            ","  n______n  "," ( ^    ^ ) "," (   ww   ) "," /`------'\\ "],["            "," n______n   ","( @    @ )  "," (   ~~   ) ","  `------'  "],["            ","  n______n  "," ( ^    ^ ) "," (   ww   ) ","  `------'  "]]};
+S.capybara.s[0]=[["            ","            ","    .--.    ","  _( -- )_  "," (___zz___) "],["            ","    .--.    ","  _( __ )_  "," (___oO___) ","  ~~~~~~~~  "],["            ","            ","  .---___   "," (-- ZZZ-)= ","  `~~~~~~`  "],["            ","    .--.    ","  _( ^^ )_  "," (___O____) ","  ~~~~~~~~  "]]
+
+S.duck={n:"Duck",s:[[],["            ","    __      ","  <(o )___  ","   (  ._>   ","    `--´    "],["            ","    __      ","  <(o )___  ","   (  ._>   ","  ~ `--´    "],["    __      ","  <(O )     ","  (    )___ ","   (  ._>   ","    `--´    "],["            ","    __      ","  <(^ )___  ","   (  ._>   "," /`--´\\     "],["            ","   __       "," <(@ )___   ","  (  .~>    ","   `--´     "],["            ","    __      ","  <(^ )___  ","   (  ._>   ","    `--´    "]]};
+S.duck.s[0]=[["            ","    __      ","  <(-_)_)   "," ~~~~~~~~~~ ","            "],["            ","    __      ","  <(o.)_)   ","  ~~~~~~~~  ","   ~~~~~~   "],["            ","   __       "," <(-_)_)    "," ~~~~~~~~~~ ","  ~~~~~~~~  "],["            ","    __      ","  <(uu)_)   "," ~~~~~~~~~~ ","  ~~~~~~~~  "]]
+
+S.mushroom={n:"Mushroom",s:[[],["            "," .-o-OO-o-. ","(__________)","   |o   o|  ","   |____|   "],["            "," .-o-OO-o-. ","(__________)","   |v   v|  ","  /|____|\\  "],["            "," /^o-OO-o^\\ ","(__________)","   |O   O|  ","   |____|   "],["            "," .-o-OO-o-. ","(__________)","   |^   ^|  ","  /|____|\\  "],["            ",".-o-OO-o-.  ","(________)  ","  |@   @|   ","  |____|    "],["            "," .-o-OO-o-. ","(__________)","   |^   ^|  ","   |____|   "]]};
+S.mushroom.s[0]=[["            "," .-o-OO-o-. ","(__________)","   |-  - |  ","   |____|   "],["            "," .-o-oo-o-. ","(__________)","   |_  _ |  ","   |____|   "],["            ","  .-o-OO-o-.","  (________)","    |-  -| /","    |____|  "],["            "," .-O-OO-O-. ","(__________)","   |o  o |  ","   |____|   "]]
+
+S.rabbit={n:"Rabbit",s:[[],["    (\\_/)   ","   ( o o )  ","  =(  v  )= ","   (\")_(\")  ","            "],["    (\\_/)   ","   ( v v )  ","  =(  v  )= ","  /(\")_(\")\\ ","  ~~~~~~~~  "],["   /|  |\\   ","  /(\\_/)\\   ","  ( O  O )  ","  =(  v  )= ","   (\")_(\")  "],["    (\\_/)   ","   ( ^ ^ )  ","  =(  v  )= ","   (\")_(\")  ","  ~~~~~~~~  "],["   (\\_/)    ","  ( @ @ )   "," =(  ~  )=  ","  (\")_(\")   ","            "],["    (\\_/)   ","   ( ^ ^ )  ","  =(  v  )= ","   (\")_(\")  ","            "]]};
+S.rabbit.s[0]=[["            ","    (\\_/)   ","   ( -.- )  ","  (zzz___)  ","   `\"\"\"\"`   "],["            ","    (v_v)   ","   ( -.- )  ","  (___..)   ","   `\"\"\"\"`   "],["            ","    (\\_/)   ","   ( -.- )  ","  (~__zz_)  ","   `\"\"\"\"`   "],["            ","    (\\_/)   ","   ( u.u )  ","  (___oo_)  ","   `\"\"\"\"`   "]]
+
+S.turtle={n:"Turtle",s:[[],["            ","   _,--._   ","  ( o    o) "," /[______]\\ ","  ``    ``  "],["            ","   _,--._   ","  ( v    v) "," /[______]\\ ","  >`    >`  "],["            ","   _,--._   ","  ( O    O) "," /[__||__]\\ ","  ``    ``  "],["            ","   _,--._   ","  ( ^    ^) "," /[__ww__]\\ "," /``    ``\\ "],["            ","  _,--._    "," ( @    @)  ","/[__~~__]\\  "," ``    ``   "],["            ","   _,--._   ","  ( ^    ^) "," /[__ww__]\\ ","  ``    ``  "]]};
+S.turtle.s[0]=[["            ","   _,--._   "," /      \\  "," /[______]\\ ","  ``    ``  "],["            ","   _,--._   ","  ( -    -) "," /[__zz__]\\ ","  ``    ``  "],["            ","   _,--._   ","  ( -    -) "," /[__ZZ__]\\ ","  ``    ``  "],["            ","   _,--._   ","  ( o    o) "," /[__~~__]\\ ","  ``    ``  "]]
+
+S.owl={n:"Owl",s:[[],["            ","   /\\  /\\   ","  ((O)(O))  ","  (  ><  )  ","   `----'   "],["    [___]   ","   /\\  /\\   ","  ((v)(v))  ","  (  --  )  ","   `----'   "],["            ","  /^\\  /^\\  "," ((O))((O)) "," (   ><   ) ","  `------'  "],["            ","   /\\  /\\   ","  ((^)(^))  ","  (  ww  )  ","  /`----'\\  "],["            ","  /\\  /\\    "," ((@)(@))   ","  (  ~~  )  ","   `----'   "],["            ","   /\\  /\\   ","  ((^)(^))  ","  (  ww  )  ","   `----'   "]]};
+S.owl.s[0]=[["            ","   .-..-.   ","  ( -  - )  ","  (  __  )  ","   `----'   "],["    .--.    ","   /-..-\\   ","  ( _  _ )  ","  (  ZZ  )  ","   `----'   "],["            ","   .-..-.   ","  ( -  - )  ","  (  __  )  ","   `----'   "],["      hoo   ","   .-..-.   ","  ( -  - )  ","  (  oo  )  ","   `----'   "]]
+
+S.ghost={n:"Ghost",s:[[],["            ","   .----.   ","  ( o    o )","  |   __   |","  ~`~``~`~  "],["            ","   .----.   ","  ( v    v )","  |   --   |"," /~`~``~`~\\ "],["    ! !!    ","   .----.   ","  ( O    O )","  |   OO   |"," /~`~``~`~\\ "],["            ","   .----.   ","  ( ^    ^ )","  |   ww   |"," /~`~``~`~\\ "],["            ","  .----.    "," ( @    @ ) "," |   ~~   | ","  ~`~``~`~  "],["            ","   .----.   ","  ( ^    ^ )","  |   ww   |","  ~`~``~`~  "]]};
+S.ghost.s[0]=[["            ","   .----.   ","  ( -    - )","  |        |","  ~`~``~`~  "],["            ","   . -- .   ","  ( -    - )","  .        .","  . . . . . "],["            ","   .    .   ","  ( -    - )","  .        .","  . `~`  .  "],["            ","   .----.   ","  ( z    z )","  |   o    |","  ~~`~~`~~  "]]
+
+S.octopus={n:"Octopus",s:[[],["            ","   .----.   ","  ( o  o )  ","  (______)  ","  /\\/\\/\\/\\  "],["            ","   .----.   ","  ( v  v )  ","  (__--__)  ","  /)\\/\\/(\\  "],["    ^  ^    ","   .----.   ","  ( O  O )  ","  (__O___)  ","  /\\/\\/\\/\\  "],["            ","   .----.   ","  ( ^  ^ )  ","  (__ww__)  "," //\\/\\/\\\\\\ "],["            ","  .----.    "," ( @  @ )   "," (__~~__)   "," /\\/\\/\\/\\   "],["            ","   .----.   ","  ( ^  ^ )  ","  (__ww__)  ","  /\\/\\/\\/\\  "]]};
+S.octopus.s[0]=[["            ","            ","   .----.   ","  ( -- -- ) ","  (~~zz~~)  "],["            ","   .----.   ","  ( __ __ ) ","  (______)  ","  ~~~~~~~~  "],["            ","  .----.    "," ( -- -- )  "," (______)   "," ~/~/~/~/   "],["            ","   .----.   ","  ( oO oO ) ","  (__o___)  ","  ~~~~~~~~  "]]
+
+S.dragon={n:"Dragon",s:[[],["            ","  /^\\  /^\\  "," <  o    o >"," (   ww   ) ","  `-vvvv-'  "],["    $$$$    ","  /^\\  /^\\  "," <  v    v >"," (   --   ) "," /`-vvvv-'\\ "],["    ^  ^    "," /^^\\  /^^\\ ","<  O    O  >"," (   <>   ) ","  `-vvvv-'  "],["            ","  /^\\  /^\\  "," <  ^    ^ >"," (   WW   ) "," /`-vvvv-'\\ "],["            "," /^\\  /^\\   ","< @    @ )  "," (   ~~   ) ","  `-vvvv-'  "],["            ","  /^\\  /^\\  "," <  ^    ^ >"," (   ww   ) ","  `-vvvv-'  "]]};
+S.dragon.s[0]=[["            ","            ","   _____    ","  (--   )~  ","  `vvvvv'   "],["            ","       o    ","   _____    ","  (--   )~~ ","  `vvvvv'   "],["            ","  /^\\  /^\\  "," <  oo  oo >"," (   __   ) ","  `-vvvv-'  "],["            ","            ","   _____    ","  (--   )$  ","  `vvvvv'$$ "]]
+
+S.cactus={n:"Cactus",s:[[],["            "," n  ____  n "," | |o  o| | "," |_|    |_| ","   |    |   "],["            "," n  ____  n "," | |v  v| | "," |_|  --|_| ","   |    |   "],[" *  ____  * "," n *|O  O|* n"," |*|    |*| "," |_|    |_| ","  *|    |*  "],["            "," n  ____  n "," | |^  ^| | "," |_|  ww|_| ","  /|    |\\  "],["            ","n  ____   n ","| |@  @|  | "," |_|~~  |_| ","   |    |   "],["    @       "," n  ____  n "," | |^  ^| | "," |_|  ww|_| ","   |    |   "]]};
+S.cactus.s[0]=[["            ","    ____    ","   |--  |   ","   |_  _|   ","    |  |    "],["            ","    ____    ","   |--  |   ","   |_  _|   ","    |  |    "],["            ","    ____    ","   |~~  |   ","   |_  _|   ","   ~|  |~   "],["            ","    ____    ","   |--  |   ","   |_  _|   ","    |  |    "]]
+
+S.robot={n:"Robot",s:[[],["            ","   .[||].   ","  [ o    o ]","  [ ==== ]  ","  `------'  "],["    01010   ","   .[||].   ","  [ #    # ]","  [ ==== ]  "," /`------'\\ "],["    [!]     ","   .[||].   ","  [ O    O ]","  [ #### ]  "," /`------'\\ "],["            ","   .[||].   ","  [ ^    ^ ]","  [ ==== ]  "," /`------'\\ "],["            ","  .[||].    "," [ x    x ] "," [ ~~~~ ]   ","  `------'  "],["    [<3]    ","   .[||].   ","  [ ^    ^ ]","  [ ==== ]  ","  `------'  "]]};
+S.robot.s[0]=[["            ","   .[__].   ","  [ -    - ]","  [ ____ ]  ","  `------'  "],["            ","   .[  ].   ","  [        ]","  [ ____ ]  ","  `------'  "],["    .[*].   ","   .[||].   ","  [ -    - ]","  [ zzzz ]  ","  `------'  "],["            ","   .[..].   ","  [ o    - ]","  [ ____ ]  ","  `------'  "]]
+
+S.penguin={n:"Penguin",s:[[],["   .---.    ","  ( o>o )   "," /(     )\\  ","  `-----`   ","   J   L    "],["   .---.    ","  ( v>v )   "," /(     )\\  "," /`-----`\\  ","   J   L    "],["   .---.    ","  ( O>O )   "," /(     )\\  ","  `-----`   ","   J   L    "],["            ","   .---.    ","  ( ^>^ )   "," /(_____)\\  ","   J   L    "],["  .---.     "," ( @>@ )    ","/(     )    "," `-----`    ","  J   L     "],["   .---.    ","  ( ^>^ )   "," /(     )\\  ","  `-----`   ","   J   L    "]]};
+S.penguin.s[0]=[["            ","   .---.    ","  ( -- )    ","  (_____)   ","   ~~~~~    "],["    o O .   ","   .---.    ","  ( __ )    ","  (_____)   ","   =====    "],["            ","            ","  .-----.   "," ( --   )=> ","  `~~~~~`   "],["            ","   .---.    ","  ( ^^ )    "," /(_____)   ","   ~~~~~    "]]
+
+S.cat={n:"Cat",s:[[],["            ","   /\\_/\\    ","  ( o   o ) ","  (  w   )  ","  (\")_(\")   "],["      .     ","   /\\_/\\    ","  ( o   o ) ","  (  w   )/ ","  (\")_(\")   "],["            ","   /^_^\\    ","  ( O   O ) ","  (  v   )  ","  (\")_(\")   "],["            ","   /\\_/\\    ","  ( ^   ^ ) ","  (  W   )  "," /(\")_(\")\\  "],["            ","  /\\_/\\     "," ( @   @ )  "," (   ~~  )  "," (\")_(\")    "],["            ","   /\\_/\\    ","  ( ^   ^ ) ","  (  u   )  ","  (\")_(\")~  "]]};
+S.cat.s[0]=[["            ","            ","   .-..-.   ","  ( -.- )   ","  `------`~ "],["            ","            ","   .-..-.   ","  ( u.u )   "," `~------'~ "],["            ","            ","   .-/\\.    ","  (  ..  )) ","  `~~~~~~`  "],["            ","            ","   .-/\\.    ","  (  ..  )) ","  `~~~~~~`~ "]]
+
+S.blob={n:"Blob",s:[[],["            ","    .--.    ","   (o  o)   ","   (    )   ","    `--`    "],["            ","   .----.   ","  ( v  v )  ","  (   --  ) ","   `----`   "],["    .--.    ","   (    )   ","  ( O  O )  ","  (   !   ) ","  `------`  "],["            ","   .----.   ","  ( ^  ^ )  "," /(  ww  )\\ ","  `------`  "],["            ","  .----.    "," ( @  @ )   "," (  ~~  )   ","  `----`    "],["            ","   .----.   ","  ( ^  ^ )  ","  (   ww  ) ","   `----`   "]]};
+S.blob.s[0]=[["            ","            ","   .----.   ","  ( -- -- ) ","  `~------~`"],["            ","  .------.  "," ( -- -- ) "," (         )","  `~------~`"],["            ","            ","   .----.   ","  ( __ __ ) "," `~~~~~~~~~`"],["            ","  .------.  "," ( __ __ )  "," (    o    )","  `~------~`"]]
+
+S.axolotl={n:"Axolotl",s:[[],["            ","}~(______)~{","}~( o  o )~{","  ( .--. )  ","  (_/  \\_)  "],["            ","}~(______)~{","}~( v  v )~{","  (  --  )  "," /(_/  \\_)\\ "],["    ^  ^    ","}}~(______)~{{","}}~( O  O )~{{","  (  O   )  ","  (_/  \\_)  "],["            ","}~(______)~{","}~( ^  ^ )~{","  (  ww  )  "," /(_/  \\_)\\ "],["            ","}~(______)~{ ","}~( @  @ )~{ ","  ( ~~~~ )  ","  (_/  \\_)  "],["            ","}~(______)~{","}~( ^  ^ )~{","  ( .vv. )  ","  (_/  \\_)  "]]};
+S.axolotl.s[0]=[["            ","}~(______)~{","}~( -  - )~{","  ( .__. )  ","  (_/  \\_)  "],["            ","~}(______){~","~}( _  _ ){~","  ( ____ )  ","  ~_/  \\_~  "],["            ","            ","  }~~~~~_   "," }~( -- -)= ","  (__----)  "],["            ","}~(______)~{","}~( o  o )~{","  ( oOOo )  ","  (_/  \\_)  "]]
+
+S.goose={n:"Goose",s:[[],["            ","    (>      ","    ||      ","  _(__)_    ","   ^^^^     "],["            ","    (>      "," <==||==>   ","  _(__)_    ","   /^ ^\\    "],["    HONK!   ","     (>>    ","     ||     ","   _(__)_   ","    ^^^^    "],["            ","    (>      ","   _||_     ","  (____)    ","   ^^^^     "],["            ","   (x       ","   ||\\      ","  _(__)_    ","   v^^v     "],["            ","    (^>     ","    ||      ","  _(__)_    ","   ^^^^     "]]};
+S.goose.s[0]=[["            ","    __      ","   /  \\__   ","  (  zz  )  ","   `~~~~`   "],["    o O .   ","    __      ","   /  \\__   ","  (  --  )  ","   `~~~~`   "],["            ","      __    ","   __/  \\   ","  (  zz  )  ","   `~~~~`   "],["    HnK..   ","    __      ","   /  \\__   ","  (  zZ  )  ","   `~~~~`   "]]
+
+S.snail={n:"Snail",s:[[],["  \\\\  /     ","    .--.    ","  _( oo )_  "," (___@@___) ","  ~~~~~~~~  "],["  \\\\  /     ","    .o-.    ","  _( vv )_  "," (___--___) ","  ~~~~~~~~  "],["  ||  ||    ","    .--.    ","  _( OO )_  "," (___OO___) ","  ~~~~~~~~  "],["  \\\\  /     ","    .--.    ","  _( ^^ )_  "," (___ww___) "," /~~~~~~~~\\ "],["  \\\\\\       ","   .--.     ","  ( @x )    "," (___~v___) ","  ~~~~~~~~  "],["  \\\\  /     ","    .--.    ","  _( ^^ )_  "," (___ww___) ","  ~~~~~~~~  "]]};
+S.snail.s[0]=[["            ","     .--.   ","    ( zz )  ","   `-____-` ","  ~~~~~~~~  "],["      o     ","     .--.   ","    ( __ )  ","   `-____-` ","  ~~~~~~~~  "],["    . o O   ","     .--.   ","    ( UU )  ","   `-____-` ","  ~~~~~~~~  "],["            ","     .--.   ","    ( ^^ )  ","   `-____-` "," ~~~~~~~~~~ "]]
+
+S.chonk={n:"Chonk",s:[[],["            ","  /\\____/\\  "," ( o    o ) "," (   ..   ) ","  `------'  "],["      ?     ","  /\\____/\\  "," ( o    o ) "," (   --   ) ","  `------'  "],["    ^  ^    ","  /^____^\\  "," ( O    O ) "," (   o    ) ","  `------'  "],["            ","  /\\____/\\  "," ( ^    ^ ) ","(    WW    )","(__________)"],["            "," /\\____/\\   ","( @    @ )  "," (   ~~   ) ","  `------'  "],["            ","  /\\____/\\  "," ( ^    ^ ) "," (   ww   ) ","  `------'  "]]};
+S.chonk.s[0]=[["            ","            ","  /\\____/\\  "," ( -    - ) "," (___zz___) "],["            ","  /\\____/\\  "," ( -    - ) ","(    --    )","(__________)"],["            ","  /\\____/\\  "," ( -    - ) ","  /\\____/\\  "," ( -    - ) "],["            ","  /\\____/\\  "," ( -    u ) "," (   __   ) "," (___..___) "]]
+
+var SPECIES_KEYS = Object.keys(S);
+var speciesIdx = 0;
+
+// ── state ──────────────────────────────────────────────────────────────
+var buddy = {
+  species: 'duck',
+  state: 'sleep',    // sleep, idle, busy, attention, celebrate, dizzy, heart
+  frame: 0,
+  tick: 0,
+  connected: false,
+  sessions: 0,
+  running: 0,
+  waiting: 0,
+  tokens: 0,
+  tokens_today: 0,
+  msg: '',
+  status: 'disconnected'
+};
+
+var blinkState = {blinking:false, nextBlink:0};
+function schedBlink() { blinkState.nextBlink = Date.now() + 2000 + Math.random()*3000; }
+schedBlink();
+
+// ── state mapping ────────────────────────────────────────────────────────────
+function mapState(ocStatus) {
+  switch(ocStatus) {
+    case 'idle': return 'idle';
+    case 'active': return 'idle';
+    case 'running': return 'busy';
+    case 'attention': return 'attention';
+    case 'celebrate': return 'celebrate';
+    case 'error': return 'dizzy';
+    case 'disconnected': return 'sleep';
+    default: return 'idle';
+  }
+}
+
+function mapAnim(state) {
+  var map = {sleep:0, idle:1, busy:2, attention:3, celebrate:4, dizzy:5, heart:6};
+  return map[state] || 1;
+}
+
+// ── API polling ─────────────────────────────────────────────────────────────
+var DESKTOP_IPS = ['192.168.1.100','192.168.1.101','192.168.1.102','192.168.1.103','192.168.1.104','192.168.1.105','192.168.1.106','192.168.1.107','192.168.1.108','192.168.1.109','192.168.1.110','192.168.1.111','192.168.1.112','192.168.1.113','192.168.1.114','192.168.1.115','192.168.1.116','192.168.1.117','192.168.1.118','192.168.1.119','192.168.1.120','192.168.1.121','192.168.1.122','192.168.1.123','192.168.1.124','192.168.1.125','192.168.1.126','192.168.1.127','192.168.1.128','192.168.1.129','192.168.1.130','192.168.1.131','192.168.1.132','192.168.1.133','192.168.1.134','192.168.1.135','192.168.1.136','192.168.1.137','192.168.1.138','192.168.1.139','192.168.1.140','192.168.1.141','192.168.1.142','192.168.1.143','192.168.1.144','192.168.1.145','192.168.1.146','192.168.1.147','192.168.1.148','192.168.1.149','192.168.1.150','192.168.1.151','192.168.1.152','192.168.1.153','192.168.1.154','192.168.1.155','192.168.1.156','192.168.1.157','192.168.1.158','192.168.1.159','192.168.1.160','192.168.1.161','192.168.1.162','192.168.1.163','192.168.1.164','192.168.1.165','192.168.1.166','192.168.1.167','192.168.1.168','192.168.1.169','192.168.1.170','192.168.1.171','192.168.1.172','192.168.1.173','192.168.1.174','192.168.1.175','192.168.1.176','192.168.1.177','192.168.1.178','192.168.1.179','192.168.1.180','192.168.1.181','192.168.1.182','192.168.1.183','192.168.1.184','192.168.1.185','192.168.1.186','192.168.1.187','192.168.1.188','192.168.1.189','192.168.1.190','192.168.1.191','192.168.1.192','192.168.1.193','192.168.1.194','192.168.1.195','192.168.1.196','192.168.1.197','192.168.1.198','192.168.1.199','192.168.1.200','192.168.1.201','192.168.1.202','192.168.1.203','192.168.1.204','192.168.1.205','192.168.1.206','192.168.1.207','192.168.1.208','192.168.1.209','192.168.1.210','192.168.1.211','192.168.1.212','192.168.1.213','192.168.1.214','192.168.1.215','192.168.1.216','192.168.1.217','192.168.1.218','192.168.1.219','192.168.1.220','192.168.1.221','192.168.1.222','192.168.1.223','192.168.1.224','192.168.1.225','192.168.1.226','192.168.1.227','192.168.1.228','192.168.1.229','192.168.1.230','192.168.1.231','192.168.1.232','192.168.1.233','192.168.1.234','192.168.1.235','192.168.1.236','192.168.1.237','192.168.1.238','192.168.1.239','192.168.1.240','192.168.1.241','192.168.1.242','192.168.1.243','192.168.1.244','192.168.1.245','192.168.1.246','192.168.1.247','192.168.1.248','192.168.1.249','192.168.1.250','192.168.1.251','192.168.1.252','192.168.1.253','192.168.1.254'];
+var apiIp = '';
+var apiUrl = '';
+
+function tryNextIp(idx) {
+  if (idx >= DESKTOP_IPS.length) {
+    apiUrl = '';
+    return;
+  }
+  var ip = DESKTOP_IPS[idx];
+  var url = 'http://' + ip + ':9876/buddy/state';
+  fetch(url, {method:'GET', mode:'cors', signal:AbortSignal.timeout(2000)})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d && typeof d.connected !== 'undefined') {
+        apiIp = ip;
+        apiUrl = url;
+        document.getElementById('status-lbl').textContent = 'CONNECTED';
+        buddy.connected = true;
+        buddy.status = d.status || 'idle';
+        buddy.sessions = d.sessions || 0;
+        buddy.running = d.running || 0;
+        buddy.waiting = d.waiting || 0;
+        buddy.tokens = d.tokens || 0;
+        buddy.tokens_today = d.tokens_today || 0;
+        buddy.msg = d.msg || '';
+        buddy.species = d.species || buddy.species;
+        updateSpeciesDisplay();
+      }
+    })
+    .catch(function(){
+      tryNextIp(idx + 1);
+    });
+}
+
+function discoverServer() {
+  document.getElementById('status-lbl').textContent = 'SCANNING...';
+  tryNextIp(0);
+}
+
+function pollState() {
+  if (!apiUrl) {
+    discoverServer();
+    return;
+  }
+  fetch(apiUrl, {method:'GET', mode:'cors', signal:AbortSignal.timeout(3000)})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d && typeof d.connected !== 'undefined') {
+        buddy.connected = true;
+        buddy.status = d.status || 'idle';
+        buddy.sessions = d.sessions || 0;
+        buddy.running = d.running || 0;
+        buddy.waiting = d.waiting || 0;
+        buddy.tokens = d.tokens || 0;
+        buddy.tokens_today = d.tokens_today || 0;
+        buddy.msg = d.msg || '';
+        buddy.species = d.species || buddy.species;
+        updateSpeciesDisplay();
+        document.getElementById('status-lbl').textContent = d.connected ? 'LIVE' : '--';
+      } else {
+        document.getElementById('status-lbl').textContent = 'OFFLINE';
+        buddy.connected = false;
+      }
+    })
+    .catch(function(){
+      document.getElementById('status-lbl').textContent = 'LOST';
+      buddy.connected = false;
+      apiUrl = '';
+    });
+}
+
+function postSpecies(sp) {
+  if (!apiUrl) return;
+  fetch(apiUrl.replace('/state','/species'), {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({species: sp}),
+    mode:'cors', signal:AbortSignal.timeout(2000)
+  }).catch(function(){});
+}
+
+function updateSpeciesDisplay() {
+  var sp = buddy.species;
+  if (S[sp]) {
+    speciesIdx = SPECIES_KEYS.indexOf(sp);
+    document.getElementById('species-name').textContent = S[sp].n.toUpperCase();
+  }
+}
+
+// ── audio ──────────────────────────────────────────────────────────────
+var AC = window.AudioContext || window.webkitAudioContext;
+var ac = null;
+function getCtx() { if (!ac) ac = new AC(); if (ac.state === 'suspended') ac.resume(); return ac; }
+function beep(freq, vol, dur) {
+  var c = getCtx(), o = c.createOscillator(), g = c.createGain();
+  o.connect(g); g.connect(c.destination);
+  o.type = 'square'; o.frequency.value = freq;
+  g.gain.setValueAtTime(vol||0.1, c.currentTime);
+  g.gain.linearRampToValueAtTime(0, c.currentTime+(dur||0.1));
+  o.start(); o.stop(c.currentTime+(dur||0.1));
+}
+
+// ── rendering ──────────────────────────────────────────────────────────
+function getSprite(species, state) {
+  var sp = S[species];
+  if (!sp) return [['no data']];
+  var si = mapAnim(state);
+  var frames = sp.s[si];
+  if (!frames || !frames.length) return [['no frame']];
+  return frames[Math.floor(buddy.tick / 12) % frames.length];
+}
+
+function drawSprite() {
+  var W = 240, H = 208;
+  ctx.fillStyle = BG;
+  ctx.fillRect(0, 0, W, H);
+
+  var state = buddy.connected ? mapState(buddy.status) : 'sleep';
+  var sp = getSprite(buddy.species, state);
+  
+  // Scanlines effect
+  ctx.fillStyle = 'rgba(0,255,65,0.02)';
+  for (var sy = 0; sy < H; sy += 3) {
+    ctx.fillRect(0, sy, W, 1);
+  }
+
+  // Draw sprite
+  if (sp && sp.length) {
+    var fontSize = 16;
+    var lineH = 18;
+    var rows = sp.length;
+    var totalH = rows * lineH;
+    var startY = (H - totalH) / 2;
+    
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = fontSize + 'px monospace';
+
+    for (var r = 0; r < rows; r++) {
+      var row = sp[r] || '';
+      var x = 120;
+      var y = startY + r * lineH + lineH/2;
+
+      for (var c = 0; c < row.length; c++) {
+        var ch = row[c];
+        var cx = x + (c - row.length/2) * (fontSize * 0.6);
+        
+        if (ch === ' ' || ch === '') continue;
+        
+        // Matrix green characters with different intensity
+        if (ch === 'o' || ch === 'O' || ch === '@' || ch === '^' || ch === '0') {
+          ctx.fillStyle = '#00FF41';
+        } else if ('xX><v~~~!|'.indexOf(ch) >= 0) {
+          ctx.fillStyle = DIM;
+        } else if (ch === '#' || ch === '<' || ch === '3' || ch === '*') {
+          ctx.fillStyle = '#00CC33';
+        } else if (ch === '-' || ch === '_' || ch === '=' || ch === '.' || ch === ',') {
+          ctx.fillStyle = 'rgba(0,255,65,0.5)';
+        } else if ('/\\()[]{}'+"'`\"".indexOf(ch) >= 0) {
+          ctx.fillStyle = 'rgba(0,255,65,0.35)';
+        } else {
+          ctx.fillStyle = DIM;
+        }
+
+        // Blinking effect
+        if (ch === 'o' || ch === 'O') {
+          var blink = Math.sin(buddy.tick * 0.15 + c + r) * 0.3 + 0.7;
+          ctx.globalAlpha = blink;
+        }
+
+        ctx.fillText(ch, cx, y);
+        ctx.globalAlpha = 1;
+      }
+    }
+  }
+
+  // Status text at bottom of canvas
+  ctx.fillStyle = DIM;
+  ctx.font = '8px monospace';
+  ctx.textAlign = 'center';
+  var statusText = '';
+  if (!buddy.connected) {
+    statusText = 'DISCONNECTED';
+  } else if (buddy.msg) {
+    statusText = buddy.msg;
+  } else if (buddy.status === 'idle') {
+    statusText = 'READY';
+  } else if (buddy.status === 'running') {
+    statusText = buddy.running + ' running';
+  } else {
+    statusText = buddy.status.toUpperCase();
+  }
+  ctx.fillText(statusText, 120, H - 10);
+
+  ctx.textAlign = 'left';
+}
+
+// ── bars ───────────────────────────────────────────────────────────────
+function updateBars() {
+  var sPct = Math.min(100, (buddy.sessions || 0) * 33);
+  document.getElementById('sessions-bar').style.width = sPct + '%';
+  var tPct = Math.min(100, (buddy.tokens || 0) / 5000);
+  document.getElementById('tokens-bar').style.width = tPct + '%';
+}
+
+// ── animation loop ─────────────────────────────────────────────────────
+function loop() {
+  buddy.tick++;
+  drawSprite();
+  updateBars();
+  requestAnimationFrame(loop);
+}
+
+// ── stats panel ────────────────────────────────────────────────────────
+var statsOpen = false;
+function openStats() {
+  document.getElementById('sp-species-val').textContent = S[buddy.species] ? S[buddy.species].n : '--';
+  document.getElementById('sp-status-val').textContent = buddy.status.toUpperCase();
+  document.getElementById('sp-sessions-val').textContent = buddy.sessions;
+  document.getElementById('sp-running-val').textContent = buddy.running;
+  document.getElementById('sp-tokens-val').textContent = (buddy.tokens || 0).toLocaleString();
+  document.getElementById('sp-today-val').textContent = (buddy.tokens_today || 0).toLocaleString();
+  document.getElementById('stats-panel').classList.add('open');
+  statsOpen = true;
+}
+function closeStats() {
+  document.getElementById('stats-panel').classList.remove('open');
+  statsOpen = false;
+}
+
+// ── controls ───────────────────────────────────────────────────────────
+document.getElementById('sp-ctrl-header').addEventListener('click', function(){
+  this.classList.toggle('open');
+  document.getElementById('sp-controls').classList.toggle('open');
+});
+
+var lastSide = 0;
+window.addEventListener('sideClick', function() {
+  if (statsOpen) { closeStats(); return; }
+  var now = Date.now();
+  if (now - lastSide < 400) { openStats(); lastSide = 0; }
+  else { lastSide = now; setTimeout(function(){ if(lastSide===now) openStats(); }, 400); }
+});
+
+window.addEventListener('scrollUp', function() {
+  if (statsOpen) return;
+  speciesIdx = (speciesIdx - 1 + SPECIES_KEYS.length) % SPECIES_KEYS.length;
+  buddy.species = SPECIES_KEYS[speciesIdx];
+  document.getElementById('species-name').textContent = S[buddy.species].n.toUpperCase();
+  beep(500, 0.08, 0.05);
+  postSpecies(buddy.species);
+});
+
+window.addEventListener('scrollDown', function() {
+  if (statsOpen) return;
+  speciesIdx = (speciesIdx + 1) % SPECIES_KEYS.length;
+  buddy.species = SPECIES_KEYS[speciesIdx];
+  document.getElementById('species-name').textContent = S[buddy.species].n.toUpperCase();
+  beep(500, 0.08, 0.05);
+  postSpecies(buddy.species);
+});
+
+window.addEventListener('longPressStart', function() {
+  if (statsOpen) return;
+  beep(300, 0.1, 0.1);
+});
+
+window.addEventListener('longPressEnd', function() {
+  if (statsOpen) return;
+  // Re-discover server on hold
+  discoverServer();
+  beep(600, 0.1, 0.1);
+});
+
+// Keyboard fallback for desktop testing
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') window.dispatchEvent(new Event('sideClick'));
+  if (e.key === 'ArrowUp') window.dispatchEvent(new Event('scrollUp'));
+  if (e.key === 'ArrowDown') window.dispatchEvent(new Event('scrollDown'));
+  if (e.key === ' ' && !e.repeat) window.dispatchEvent(new Event('longPressStart'));
+});
+document.addEventListener('keyup', function(e) {
+  if (e.key === ' ') window.dispatchEvent(new Event('longPressEnd'));
+});
+
+// ── init ───────────────────────────────────────────────────────────────
+updateSpeciesDisplay();
+discoverServer();
+setInterval(pollState, 3000);
+loop();
+schedBlink();
+
+})();
+</script>
+</body>
+</html>
