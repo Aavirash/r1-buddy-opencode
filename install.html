@@ -16,12 +16,21 @@ p{font-size:9px;color:rgba(0,255,65,0.5);margin-bottom:12px;line-height:1.5}
 </head>
 <body>
 <h1>OPENCODE BUDDY</h1>
-<p>Scan QR with R1 to install<br>or open URL directly</p>
+<p>Open on R1 from R1 Control:</p>
+<p id="local-url" style="font-size:10px;color:#00FF41;word-break:break-all">http://192.168.178.86:9876/buddy/</p>
+<p style="margin-top:4px;font-size:8px;color:rgba(0,255,65,0.3)">Or scan GitHub QR</p>
 <div id="qr">
   <canvas id="qr-canvas" width="140" height="140"></canvas>
 </div>
-<div class="footer">v1.0 · matrix green</div>
+<div class="footer">v1.0 · same-origin for R1 · HTTPS for desktop</div>
 <script>
+// Try to detect R1 Control's IP from the current page
+try {
+  var parts = window.location.hostname.split(':')[0].split('.');
+  if (parts.length === 4 && !isNaN(parts[0])) {
+    document.getElementById('local-url').textContent = 'http://' + parts.join('.') + ':9876/buddy/';
+  }
+} catch(e){}
 var qrData = JSON.stringify({
   title: "OpenCode Buddy",
   url: "https://aavirash.github.io/r1-buddy-opencode/",

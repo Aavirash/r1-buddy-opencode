@@ -193,38 +193,53 @@ function mapAnim(state) {
 }
 
 // ── API polling ─────────────────────────────────────────────────────────────
-// Scan common LAN subnets for the desktop running R1 Control
+// Try same-origin first (served from R1 Control on LAN). Fall back to subnet scan.
 var DESKTOP_IPS = [];
 for (var subnet of ['192.168.178.','192.168.1.','192.168.0.','10.0.0.']) {
   for (var i = 100; i <= 254; i++) DESKTOP_IPS.push(subnet + i);
 }
-var apiIp = '';
 var apiUrl = '';
+var scanIdx = -1;
+var scanning = false;
+
+function tryRelative() {
+  var url = '/buddy/state';
+  fetch(url, {method:'GET', signal:AbortSignal.timeout(2000)})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d && typeof d.connected !== 'undefined') {
+        apiUrl = url;
+        applyState(d);
+        document.getElementById('status-lbl').textContent = 'LIVE';
+      }
+    })
+    .catch(function(){ startScan(); });
+}
+
+function startScan() {
+  if (scanning) return;
+  scanning = true;
+  scanIdx = 0;
+  document.getElementById('status-lbl').textContent = 'SCANNING...';
+  tryNextIp(0);
+}
 
 function tryNextIp(idx) {
   if (idx >= DESKTOP_IPS.length) {
-    apiUrl = '';
+    scanning = false;
+    document.getElementById('status-lbl').textContent = 'NO SERVER';
     return;
   }
   var ip = DESKTOP_IPS[idx];
   var url = 'http://' + ip + ':9876/buddy/state';
-  fetch(url, {method:'GET', mode:'cors', signal:AbortSignal.timeout(2000)})
+  fetch(url, {method:'GET', mode:'cors', signal:AbortSignal.timeout(1000)})
     .then(function(r){ return r.json(); })
     .then(function(d){
       if (d && typeof d.connected !== 'undefined') {
-        apiIp = ip;
         apiUrl = url;
+        scanning = false;
+        applyState(d);
         document.getElementById('status-lbl').textContent = 'CONNECTED';
-        buddy.connected = true;
-        buddy.status = d.status || 'idle';
-        buddy.sessions = d.sessions || 0;
-        buddy.running = d.running || 0;
-        buddy.waiting = d.waiting || 0;
-        buddy.tokens = d.tokens || 0;
-        buddy.tokens_today = d.tokens_today || 0;
-        buddy.msg = d.msg || '';
-        buddy.species = d.species || buddy.species;
-        updateSpeciesDisplay();
       }
     })
     .catch(function(){
@@ -232,30 +247,29 @@ function tryNextIp(idx) {
     });
 }
 
-function discoverServer() {
-  document.getElementById('status-lbl').textContent = 'SCANNING...';
-  tryNextIp(0);
+function applyState(d) {
+  buddy.connected = true;
+  buddy.status = d.status || 'idle';
+  buddy.sessions = d.sessions || 0;
+  buddy.running = d.running || 0;
+  buddy.waiting = d.waiting || 0;
+  buddy.tokens = d.tokens || 0;
+  buddy.tokens_today = d.tokens_today || 0;
+  buddy.msg = d.msg || '';
+  buddy.species = d.species || buddy.species;
+  updateSpeciesDisplay();
 }
 
 function pollState() {
   if (!apiUrl) {
-    discoverServer();
+    tryRelative();
     return;
   }
   fetch(apiUrl, {method:'GET', mode:'cors', signal:AbortSignal.timeout(3000)})
     .then(function(r){ return r.json(); })
     .then(function(d){
       if (d && typeof d.connected !== 'undefined') {
-        buddy.connected = true;
-        buddy.status = d.status || 'idle';
-        buddy.sessions = d.sessions || 0;
-        buddy.running = d.running || 0;
-        buddy.waiting = d.waiting || 0;
-        buddy.tokens = d.tokens || 0;
-        buddy.tokens_today = d.tokens_today || 0;
-        buddy.msg = d.msg || '';
-        buddy.species = d.species || buddy.species;
-        updateSpeciesDisplay();
+        applyState(d);
         document.getElementById('status-lbl').textContent = d.connected ? 'LIVE' : '--';
       } else {
         document.getElementById('status-lbl').textContent = 'OFFLINE';
@@ -271,10 +285,11 @@ function pollState() {
 
 function postSpecies(sp) {
   if (!apiUrl) return;
-  fetch(apiUrl.replace('/state','/species'), {
+  var url = apiUrl.replace('/state','/species');
+  fetch(url, {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({species: sp}),
-    mode:'cors', signal:AbortSignal.timeout(2000)
+    signal:AbortSignal.timeout(2000)
   }).catch(function(){});
 }
 
@@ -467,7 +482,8 @@ window.addEventListener('longPressStart', function() {
 window.addEventListener('longPressEnd', function() {
   if (statsOpen) return;
   // Re-discover server on hold
-  discoverServer();
+  apiUrl = '';
+  tryRelative();
   beep(600, 0.1, 0.1);
 });
 
@@ -484,7 +500,7 @@ document.addEventListener('keyup', function(e) {
 
 // ── init ───────────────────────────────────────────────────────────────
 updateSpeciesDisplay();
-discoverServer();
+tryRelative();
 setInterval(pollState, 3000);
 loop();
 schedBlink();
